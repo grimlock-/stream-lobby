@@ -1,0 +1,57 @@
+-----------
+- General -
+-----------
+* Split up source into multiple files and stop reliance on static vars
+* Valgrind
+* Text chat
+* Video stream via Streamlink
+
+
+--------------------
+-  Plugin Backend  -
+--------------------
+-log file per lobby
+-Ban list (would probably require making a custom transport)
+-Queues to get in a lobby
+-Generic messages/commands for use at the web interface level for stuff like polls
+-Smilies
+-User commands
+  *create room
+  *lobby properties
+  *promote [to admin]
+  *say
+  *whisper
+  *upload image
+  *mute
+  *change nick
+  ==ADMIN==
+  *kick
+  *kick-uuid
+  *ban
+  *ban-uuid
+  *shush (silent global mute)
+  *shush-uuid
+  *change lobby properties (i.e. max user count)
+  *destroy room
+-Events
+  *Video feed start
+  *Video feed end
+  *Peer leaving
+  *Kicked from lobby
+  *Nick changed (including your own)
+
+
+
+--------------------
+-  Web  Interface  -
+--------------------
+-Autojoin a specific lobby
+
+
+
+-------------------
+-  Down the Line  -
+-------------------
+*Lobby background music?
+*realtime audio filters
+  -Test mode so you can hear what you sound like

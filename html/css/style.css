@@ -1,0 +1,67 @@
+body {
+	background-color:#EEF2FF;
+}
+
+.error_screen {
+	background-color:#E5E5E5;
+	position:absolute;
+	height:100%;
+	width:100%;
+	top:0px;
+	left:0px;
+}
+
+.error_screen>h3 {
+	/*color, border, etc.*/
+	border-width:2px;
+	border-style:solid;
+	background-color:yellow;
+	padding:5px;
+	/*positioning black magic*/
+	position:absolute;
+	display:inline-block;
+	left:50%;
+	top:50%;
+	transform: translate(-50%, -50%);
+	margin:0px;
+}
+
+.status_light {
+	width: 48px;
+	height: 48px;
+	visibility: hidden;
+	position: relative; /*Necessary so the status lights' w/h aren't set relative to the document body*/
+}
+
+.status_light>img {
+	visibility: hidden;
+	top: 0px;
+	left: 0px;
+	position: absolute;
+}
+
+.room_list_item {
+	text-align: center;
+}
+
+.room_list_prop_img {
+	width: 32px;
+}
+
+.room_list_connect {
+	cursor: pointer;
+	font-family: inherit;
+	font-size: 100%;
+	padding: 0.5em 1em;
+	color: white;
+	background: rgb(28, 184, 65);
+	border: none rgba(0, 0, 0, 0);
+	border-radius: 4px;
+	text-decoration: none;
+	text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+	border-radius: 2px;
+}
+
+#room_list {
+	background-color: #ABABAB;
+}

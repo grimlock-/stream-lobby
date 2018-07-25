@@ -1,0 +1,5 @@
+*.o
+*.so
+
+# Don't ignore these files
+!.gitignore
