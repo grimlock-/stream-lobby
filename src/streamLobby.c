@@ -269,7 +269,7 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 			janus_config_print(config);
 			
 			//We have a configuration file, so get the global stuff
-			GList* config_lobby = janus_config_get_categories(config);
+			GList* config_lobby = janus_config_get_categories(config, NULL);
 			while(config_lobby != NULL)
 			{
 				janus_config_category* category = (janus_config_category*) config_lobby->data;
@@ -324,7 +324,7 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 		
 		if(!default_config)
 		{
-			GList* config_lobby = janus_config_get_categories(config);
+			GList* config_lobby = janus_config_get_categories(config, NULL);
 			while(config_lobby != NULL)
 			{
 				janus_config_category* category = (janus_config_category*) config_lobby->data;
