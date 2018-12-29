@@ -454,8 +454,8 @@
 							newRow.innerHTML = "<td class='room_list_property' title='name'>"+rooms[j].name+"</td>"+
 							"<td class='room_list_property' title='subject'>"+rooms[j].subject+"</td>"+
 							"<td class='room_list_property' title='description'>"+rooms[j].description+"</td>"+
-							"<td class='room_list_property' title='audio'><img class=\"room_list_prop_img\" src=\""+(rooms[j].audio_enabled ? "img/check.svg" : "img/x.svg")+"\"></td>"+
-							"<td class='room_list_property' title='video'><img class=\"room_list_prop_img\" src=\""+(rooms[j].video_enabled ? "img/check.svg" : "img/x.svg")+"\"></td>"+
+							"<td class='room_list_property' title='audio'><img class=\"room_list_prop_img\" src=\""+(rooms[j].audio_enabled ? "img/green.png" : "img/red.png")+"\"></td>"+
+							"<td class='room_list_property' title='video'><img class=\"room_list_prop_img\" src=\""+(rooms[j].video_enabled ? "img/green.png" : "img/red.png")+"\"></td>"+
 							"<td class='room_list_property' title='max_clients'>"+rooms[j].max_clients+"</td>"+
 							"<td class='room_list_property' title='connected_clients'>"+rooms[j].connected_clients+"</td>";
 							if(rooms[j].connected_clients < rooms[j].max_clients)

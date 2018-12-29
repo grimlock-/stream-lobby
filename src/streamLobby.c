@@ -269,7 +269,7 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 			janus_config_print(config);
 			
 			//We have a configuration file, so get the global stuff
-			GList* config_lobby = janus_config_get_categories(config, NULL);
+			/*GList* config_lobby = janus_config_get_categories(config, NULL);
 			while(config_lobby != NULL)
 			{
 				janus_config_category* category = (janus_config_category*) config_lobby->data;
@@ -281,9 +281,11 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 				}
 				else if(strcmp(category->name, "global") == 0)
 				{
-					JANUS_LOG(LOG_INFO, "Parsing global settings\n");
-					janus_config_item* tmpLimit = janus_config_get_item(category, "lobby_limit");
-					janus_config_item* tmpAdmin = janus_config_get_item(category, "admin_pass");
+					JANUS_LOG(LOG_INFO, "Parsing global settings\n");*/
+					/*janus_config_item* tmpLimit = janus_config_get_item(category, "lobby_limit");
+					janus_config_item* tmpAdmin = janus_config_get_item(category, "admin_pass");*/
+					janus_config_container* tmpLimit = janus_config_get(config, NULL, janus_config_type_item, "lobby_limit");
+					janus_config_container* tmpAdmin = janus_config_get(config, NULL, janus_config_type_item, "admin_pass");
 					
 					if(tmpLimit != NULL)
 					{
@@ -313,9 +315,10 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 					{
 						snprintf(admin_pass, 64, "%s", tmpAdmin->value);
 					}
-					break;
-				}
+					//break;
+				/*}
 			}
+			g_list_free(config_lobby);*/
 		}
 		
 		//Create hash tables
@@ -355,14 +358,14 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 						JANUS_LOG(LOG_ERR, "[Stream Lobby] Memory allocation failure! Skipping lobby: \"%s\"\n", category->name);
 						continue;
 					}
-					janus_config_item* tmpDesc = janus_config_get_item(category, "desc");
-					janus_config_item* tmpSubj = janus_config_get_item(category, "subject");
-					janus_config_item* tmpPriv = janus_config_get_item(category, "private");
-					janus_config_item* tmpClients = janus_config_get_item(category, "max_clients");
-					janus_config_item* tmpAudio = janus_config_get_item(category, "enable_audio");
-					janus_config_item* tmpVideo = janus_config_get_item(category, "video_auth");
-					janus_config_item* tmpVideoKey = janus_config_get_item(category, "video_key");
-					janus_config_item* tmpVideoPass = janus_config_get_item(category, "video_pass");
+					janus_config_item* tmpDesc = janus_config_get(config_lobby, category, janus_config_type_item, "desc");
+					janus_config_item* tmpSubj = janus_config_get(config_lobby, category, janus_config_type_item, "subject");
+					janus_config_item* tmpPriv = janus_config_get(config_lobby, category, janus_config_type_item, "private");
+					janus_config_item* tmpClients = janus_config_get(config_lobby, category, janus_config_type_item, "max_clients");
+					janus_config_item* tmpAudio = janus_config_get(config_lobby, category, janus_config_type_item, "enable_audio");
+					janus_config_item* tmpVideo = janus_config_get(config_lobby, category, janus_config_type_item, "video_auth");
+					janus_config_item* tmpVideoKey = janus_config_get(config_lobby, category, janus_config_type_item, "video_key");
+					janus_config_item* tmpVideoPass = janus_config_get(config_lobby, category, janus_config_type_item, "video_pass");
 					JANUS_LOG(LOG_VERB, "[Stream Lobby] Processing config file. Lobby: %s\n", category->name);
 					
 					
@@ -416,7 +419,7 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 							//opus complexity setting
 							opus_encoder_ctl(tmpLobby->encoder, OPUS_SET_COMPLEXITY(SETTINGS_OPUS_COMPLEXITY));
 							//constant bit rate
-							//opus_encoder_ctl(tmpLobby->encoder, OPUS_SET_VBR(0));
+							opus_encoder_ctl(tmpLobby->encoder, OPUS_SET_VBR(0));
 							//bit rate
 							opus_encoder_ctl(tmpLobby->encoder, OPUS_SET_BITRATE(SETTINGS_BITRATE));
 							//FEC
@@ -440,7 +443,6 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 					pthread_mutex_init(&tmpLobby->mutex, NULL);
 					pthread_mutex_init(&tmpLobby->peerlist_mutex, NULL);
 					tmpLobby->participants = calloc(tmpLobby->max_clients, sizeof(peer*));
-					//tmpLobby->id = lobby_count;
 					
 					if(addLobby(tmpLobby) != 0)
 					{
@@ -464,6 +466,7 @@ int stream_lobby_init(janus_callbacks* callback, const char* config_path)
 					config_lobby = config_lobby->next;
 				}
 			}
+			g_list_free(config_lobby);
 			janus_config_destroy(config);
 			config = NULL;
 		}
@@ -1853,23 +1856,20 @@ void* stream_lobby_audio_mix(void* data)
 
 	//Wav file stuff
 	FILE* wavFile = NULL;
-	wavFile = fopen("/media/Storage/temp/stream_lobby_recording.wav", "wb");
+	//wavFile = fopen("stream_lobby_recording.wav", "wb");
 	gint64 record_lastupdate = 0;
 	if(wavFile != NULL)
 	{
 		wav_header header;
-		//header.riff = {'R', 'I', 'F', 'F'};
 		header.riff[0] = 'R';
 		header.riff[1] = 'I';
 		header.riff[2] = 'F';
 		header.riff[3] = 'F';
 		header.len = 0;
-		//header.wave = {'W', 'A', 'V', 'E'};
 		header.wave[0] = 'W';
 		header.wave[1] = 'A';
 		header.wave[2] = 'V';
 		header.wave[3] = 'E';
-		//header.fmt = {'f', 'm', 't', ' '};
 		header.fmt[0] = 'f';
 		header.fmt[1] = 'm';
 		header.fmt[2] = 't';
@@ -1884,7 +1884,6 @@ void* stream_lobby_audio_mix(void* data)
 		header.avgbyterate = SETTINGS_SAMPLE_RATE * SETTINGS_CHANNELS * 2;
 		header.samplebytes = 2;
 		header.channelbits = 16;
-		//header.data = {'d', 'a', 't', 'a'};
 		header.data[0] = 'd';
 		header.data[1] = 'a';
 		header.data[2] = 't';
