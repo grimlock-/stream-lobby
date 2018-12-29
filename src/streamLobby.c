@@ -213,8 +213,8 @@ ogg_packet *op_opushead(void);
 ogg_packet *op_opustags(void);
 ogg_packet *op_from_pkt(const unsigned char *pkt, int len);
 void op_free(ogg_packet *op);
-int ogg_write(lobby*, char);
-int ogg_flush(lobby*, char);
+int ogg_write(lobby*);
+int ogg_flush(lobby*);
 
 
 
@@ -1518,7 +1518,7 @@ void stream_lobby_incoming_rtp(janus_plugin_session *handle, int video, char *bu
 	op->granulepos = SETTINGS_OPUS_FRAME_SIZE*ntohs(input_packet->seq_number);
 	ogg_stream_packetin(room->in_ss, op);
 	free(op);
-	ogg_write(room, 'i');
+	ogg_write(room);
 	//************************
 
 	//Get opus info
@@ -1795,7 +1795,7 @@ void* stream_lobby_audio_mix(void* data)
 	//OGG recording code block
 	//****************************
 		char in_fname[261] = {0};
-		snprintf(in_fname, 261, "/media/Storage/temp/%s_input.ogg", room->name);
+		snprintf(in_fname, 261, "/var/streamlobby/%s_input.ogg", room->name);
 		/*input ogg file*/
 		room->in_file = fopen(in_fname, "wb");
 		if(!room->in_file) return NULL;
@@ -1807,7 +1807,7 @@ void* stream_lobby_audio_mix(void* data)
 		op = op_opustags();
 		ogg_stream_packetin(room->in_ss, op);
 		op_free(op);
-		ogg_flush(room, 'i');
+		ogg_flush(room);
 	//****************************
 
 	peer* participants_list[room->max_clients];
@@ -1856,7 +1856,7 @@ void* stream_lobby_audio_mix(void* data)
 
 	//Wav file stuff
 	FILE* wavFile = NULL;
-	//wavFile = fopen("stream_lobby_recording.wav", "wb");
+	//wavFile = fopen("/var/streamlobby/stream_lobby_recording.wav", "wb");
 	gint64 record_lastupdate = 0;
 	if(wavFile != NULL)
 	{
@@ -2035,11 +2035,9 @@ void* stream_lobby_audio_mix(void* data)
 			}
 		}
 
-		//Update RTP header, set to 0 if an overflow would occur
-		payload->seq_number = htons(seq);
-		seq = (seq == 65535) ? 0 : seq+1;
-		payload->timestamp = htonl(ts);
-		ts = (ts > UINT32_MAX-SETTINGS_OPUS_FRAME_SIZE) ? 0 : ts+SETTINGS_OPUS_FRAME_SIZE;
+		//Update RTP header
+		seq++;
+		ts += SETTINGS_OPUS_FRAME_SIZE;
 
 		//Send packet to participants after removing their own voice
 		for(int i = 0; i < peer_count; i++)
@@ -2295,7 +2293,7 @@ void op_free(ogg_packet *op) {
 	}
 }
 /* Write out available ogg pages */
-int ogg_write(lobby* room, char thing) {
+int ogg_write(lobby* room) {
 	ogg_page page;
 	size_t written;
 	ogg_stream_state* ss = room->in_ss;
@@ -2316,7 +2314,7 @@ int ogg_write(lobby* room, char thing) {
 	return 0;
 }
 /* Flush remaining ogg data */
-int ogg_flush(lobby* room, char thing) {
+int ogg_flush(lobby* room) {
 	ogg_page page;
 	size_t written;
 	ogg_stream_state* ss = room->in_ss;
