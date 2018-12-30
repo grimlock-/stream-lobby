@@ -9,6 +9,8 @@
 	rooms, current_room, waiting_to_join = -1,
 	keepaliveTID = -1, connection_lightTID = -1,
 	shutting_down = false,
+	//audio_mode = "web_audio",
+	audio_mode = "html5",
 	ws_close_codes = {"1000":"CLOSE_NORMAL",
 	"1001":"CLOSE_GOING_AWAY",		"1002":"CLOSE_PROTOCOL_ERROR",
 	"1003":"CLOSE_UNSUPPORTED",		"1005":"CLOSE_NO_STATUS",
@@ -353,10 +355,16 @@
 				processor_nodes[0].disconnect();
 				processor_nodes.shift();
 			}
-			audio_context.close();
-			audio_context = undefined;
-			/*audio_element.srcObject = null;
-			audio_element = undefined;*/
+			if(audio_mode == "html5")
+			{
+				audio_element.srcObject = null;
+				audio_element = undefined;
+			}
+			else
+			{
+				audio_context.close();
+				audio_context = undefined;
+			}
 			server_connection.close();
 			server_connection = undefined;
 		}
@@ -701,6 +709,8 @@
 					{
 						console.error("Error creating session", message.error);
 						set_status_light("red", "Error creating session");
+						if(connection_type == "ws")
+							ws_connection.close();
 					}
 					else if(message.transaction == "pluginattach")
 					{
@@ -709,6 +719,8 @@
 						var button = document.getElementById("server_connection_button");
 						button.innerText = "Connect";
 						button.disabled = false;
+						if(connection_type == "ws")
+							ws_connection.close();
 					}
 					else if(message.transaction == "keepalive")
 					{
@@ -903,39 +915,46 @@
 	{
 		//TODO - figure out if it's a video or audio stream
 		log(LOG.NORMAL, "Remote stream added to PeerConnection object");
-		setTimeout(function(e) {
-			try {
-			var node = audio_context.createMediaStreamSource(e.stream);
-			source_nodes.push(node);
-			var pnode = audio_context.createScriptProcessor(0, 1, 1);
-			processor_nodes.push(pnode);
-			pnode.onaudioprocess = function(e) {
-				var inB = e.inputBuffer;
-				var outB = e.outputBuffer;
-				for(var ch = 0; ch < outB.numberOfChannels; ch++)
-				{
-					var inData = inB.getChannelData(ch);
-					var outData = outB.getChannelData(ch);
-					log(LOG.OGODWTF, "Input buffer");
-					log(LOG.OGODWTF, inData);
-					for(var i = 0; i < inB.length; i++)
+		if(audio_mode == "web_audio")
+		{
+			setTimeout(function(e) {
+				try {
+				var node = audio_context.createMediaStreamSource(e.stream);
+				source_nodes.push(node);
+				var pnode = audio_context.createScriptProcessor(0, 1, 1);
+				processor_nodes.push(pnode);
+				pnode.onaudioprocess = function(e) {
+					var inB = e.inputBuffer;
+					var outB = e.outputBuffer;
+					for(var ch = 0; ch < outB.numberOfChannels; ch++)
 					{
-						outData[i] = inData[i];
+						var inData = inB.getChannelData(ch);
+						var outData = outB.getChannelData(ch);
+						log(LOG.OGODWTF, "Input buffer");
+						log(LOG.OGODWTF, inData);
+						for(var i = 0; i < inB.length; i++)
+						{
+							outData[i] = inData[i];
+						}
 					}
 				}
-			}
-			node.connect(pnode);
-			var gnode = audio_context.createGain();
-			gnode.gain.value = 1;
-			gain_nodes.push(gnode);
-			//pnode.connect(audio_context.destination);
-			pnode.connect(gnode);
-			gnode.connect(audio_context.destination);
-			log(LOG.NORMAL, "Remote stream added to WebAudio context");
-			} catch(ex) {
-				console.error("Caught error adding remote stream to audio context.", ex);
-			}
-		}, 1500, e);
+				node.connect(pnode);
+				var gnode = audio_context.createGain();
+				gnode.gain.value = 1;
+				gain_nodes.push(gnode);
+				//pnode.connect(audio_context.destination);
+				pnode.connect(gnode);
+				gnode.connect(audio_context.destination);
+				log(LOG.NORMAL, "Remote stream added to WebAudio context");
+				} catch(ex) {
+					console.error("Caught error adding remote stream to audio context.", ex);
+				}
+			}, 1500, e);
+		}
+		else if(audio_mode == "html5")
+		{
+			audio_element.srcObject = e.stream;
+		}
 	}
 	/*function remote_track_added(e)
 	{
@@ -955,8 +974,9 @@
 	}
 	function leave_room(e)
 	{
-		//if(typeof audio_element != "undefined")
-		if(typeof audio_context != "undefined")
+		if(audio_mode == "html5" && typeof audio_element != "undefined")
+			server_audio_stop();
+		else if(audio_mode == "web_audio" && typeof audio_context != "undefined")
 			server_audio_stop();
 		build_page("lobby_listing");
 		send_message("leave_room");
@@ -1044,10 +1064,16 @@
 				if(current_room.audio_enabled)
 				{
 					//Create audio element
-					/*audio_element = new Audio();
-					audio_element.id = "audio";
-					audio_element.autoplay = true;*/
-					audio_context = new AudioContext();
+					if(audio_mode == "html5")
+					{
+						audio_element = new Audio();
+						audio_element.id = "audio";
+						audio_element.autoplay = true;
+					}
+					else if(audio_mode == "web_audio")
+					{
+						audio_context = new AudioContext();
+					}
 				}
 				if(current_room.video_enabled)
 				{

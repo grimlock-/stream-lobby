@@ -48,8 +48,8 @@ typedef struct lobby {
 	pthread_mutex_t mutex; //for lobby properties (i.e. name, desc, etc.)
 	pthread_mutex_t peerlist_mutex; //for participants array and client count
 	OpusEncoder* encoder;
-	ogg_stream_state* in_ss;
-	FILE* in_file;
+	ogg_stream_state* in_ss, *out_ss;
+	FILE* in_file, *out_file;
 	char* video_vcodec[16], video_acodec[16];
 	int video_asample, video_achannels;
 	unsigned int audio_enabled	: 1;
@@ -213,8 +213,8 @@ ogg_packet *op_opushead(void);
 ogg_packet *op_opustags(void);
 ogg_packet *op_from_pkt(const unsigned char *pkt, int len);
 void op_free(ogg_packet *op);
-int ogg_write(lobby*);
-int ogg_flush(lobby*);
+int ogg_write(lobby*, char);
+int ogg_flush(lobby*, char);
 
 
 
@@ -737,11 +737,7 @@ void stream_lobby_create_session(janus_plugin_session *handle, int *error)
 		return;
 	}
 	handle->plugin_handle = dude;
-	if(uuid_generate_time_safe(dude->uuid) != 0) {
-		JANUS_LOG(LOG_ERR, "[Stream Lobby] Could not generate uuid for peer\n");
-		*error = 3;
-		free(dude);
-	}
+	uuid_generate(dude->uuid);
 	snprintf(dude->nick, 64, "Anonymous");
 	dude->session = handle;
 	pthread_mutex_init(&dude->mutex, NULL);
@@ -1518,7 +1514,7 @@ void stream_lobby_incoming_rtp(janus_plugin_session *handle, int video, char *bu
 	op->granulepos = SETTINGS_OPUS_FRAME_SIZE*ntohs(input_packet->seq_number);
 	ogg_stream_packetin(room->in_ss, op);
 	free(op);
-	ogg_write(room);
+	ogg_write(room, 'i');
 	//************************
 
 	//Get opus info
@@ -1797,17 +1793,37 @@ void* stream_lobby_audio_mix(void* data)
 		char in_fname[261] = {0};
 		snprintf(in_fname, 261, "/var/streamlobby/%s_input.ogg", room->name);
 		/*input ogg file*/
-		room->in_file = fopen(in_fname, "wb");
-		if(!room->in_file) return NULL;
-		room->in_ss = malloc(sizeof(ogg_stream_state));
-		if(ogg_stream_init(room->in_ss, 1) < 0) return NULL;
-		ogg_packet* op = op_opushead();
-		ogg_stream_packetin(room->in_ss, op);
-		op_free(op);
-		op = op_opustags();
-		ogg_stream_packetin(room->in_ss, op);
-		op_free(op);
-		ogg_flush(room);
+		//room->in_file = fopen(in_fname, "wb");
+		if(room->in_file)
+		{
+			room->in_ss = malloc(sizeof(ogg_stream_state));
+			if(ogg_stream_init(room->in_ss, 1) < 0) return NULL;
+			ogg_packet* op = op_opushead();
+			ogg_stream_packetin(room->in_ss, op);
+			op_free(op);
+			op = op_opustags();
+			ogg_stream_packetin(room->in_ss, op);
+			op_free(op);
+			ogg_flush(room, 'i');
+		}
+
+
+		char out_fname[261] = {0};
+		snprintf(out_fname, 261, "/var/streamlobby/%s_output.ogg", room->name);
+		/*output ogg file*/
+		//room->out_file = fopen(out_fname, "wb");
+		if(room->out_file)
+		{
+			room->out_ss = malloc(sizeof(ogg_stream_state));
+			if(ogg_stream_init(room->out_ss, 1) < 0) return NULL;
+			ogg_packet* op = op_opushead();
+			ogg_stream_packetin(room->out_ss, op);
+			op_free(op);
+			op = op_opustags();
+			ogg_stream_packetin(room->out_ss, op);
+			op_free(op);
+			ogg_flush(room, 'o');
+		}
 	//****************************
 
 	peer* participants_list[room->max_clients];
@@ -1856,7 +1872,9 @@ void* stream_lobby_audio_mix(void* data)
 
 	//Wav file stuff
 	FILE* wavFile = NULL;
-	//wavFile = fopen("/var/streamlobby/stream_lobby_recording.wav", "wb");
+	char wav_fname[261] = {0};
+	snprintf(wav_fname, 261, "/var/streamlobby/%s_output.wav", room->name);
+	//wavFile = fopen(wav_fname, "wb");
 	gint64 record_lastupdate = 0;
 	if(wavFile != NULL)
 	{
@@ -2074,6 +2092,17 @@ void* stream_lobby_audio_mix(void* data)
 				JANUS_LOG(LOG_ERR, "[Stream Lobby] Oops! got an error encoding the Opus frame: %d (%s)\n", output_packet->length, opus_strerror(output_packet->length));
 			} else {
 				JANUS_LOG(LOG_DBG, "Encoded %d bytes of data\n", output_packet->length);
+
+				//OGG recording code block
+				//************************
+				ogg_packet* op = op_from_pkt((unsigned char*) payload+RTP_HEADER_SIZE, output_packet->length);
+				op->granulepos = SETTINGS_OPUS_FRAME_SIZE*ntohs(seq);
+				ogg_stream_packetin(room->out_ss, op);
+				free(op);
+				ogg_write(room, 'o');
+				//************************
+
+
 				output_packet->length += RTP_HEADER_SIZE;
 				output_packet->timestamp = ts;
 				output_packet->seq_number = seq;
@@ -2130,6 +2159,10 @@ void* stream_lobby_audio_mix(void* data)
 	fclose(room->in_file);
 	room->in_file = NULL;
 	ogg_stream_destroy(room->in_ss);
+
+	fclose(room->out_file);
+	room->out_file = NULL;
+	ogg_stream_destroy(room->out_ss);
 	//************
 
 	opus_encoder_destroy(room->encoder);
@@ -2293,11 +2326,23 @@ void op_free(ogg_packet *op) {
 	}
 }
 /* Write out available ogg pages */
-int ogg_write(lobby* room) {
+int ogg_write(lobby* room, char thing) {
 	ogg_page page;
 	size_t written;
-	ogg_stream_state* ss = room->in_ss;
-	FILE* outfile = room->in_file;
+	ogg_stream_state* ss;
+	FILE* outfile;
+	if(thing == 'i')
+	{
+		ss = room->in_ss;
+		outfile = room->in_file;
+	}
+	else if(thing == 'o')
+	{
+		ss = room->out_ss;
+		outfile = room->out_file;
+	}
+	else
+		return;
 
 	while (ogg_stream_pageout(ss, &page)) {
 		written = fwrite(page.header, 1, page.header_len, outfile);
@@ -2314,11 +2359,23 @@ int ogg_write(lobby* room) {
 	return 0;
 }
 /* Flush remaining ogg data */
-int ogg_flush(lobby* room) {
+int ogg_flush(lobby* room, char thing) {
 	ogg_page page;
 	size_t written;
-	ogg_stream_state* ss = room->in_ss;
-	FILE* outfile = room->in_file;
+	ogg_stream_state* ss;
+	FILE* outfile;
+	if(thing == 'i')
+	{
+		ss = room->in_ss;
+		outfile = room->in_file;
+	}
+	else if(thing == 'o')
+	{
+		ss = room->out_ss;
+		outfile = room->out_file;
+	}
+	else
+		return;
 
 	while (ogg_stream_flush(ss, &page)) {
 		written = fwrite(page.header, 1, page.header_len, outfile);
