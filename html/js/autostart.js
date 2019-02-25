@@ -18,10 +18,13 @@
 	"1008":"Policy Violation",		"1009":"CLOSE_TOO_LARGE",
 	"1010":"Missing Extension",		"1011":"Internal Error",
 	"1012":"Service Restart",		"1015":"TLS Handshake"},
-	user_commands = {"sdp_pass":0,
-	"list_rooms":1, "join_room":2,
-	"list_peers":3, "leave_room":4,
-	"request_sdp_offer":5, "sdp_offer":6},
+	plugin_messages = {"sdp_pass":0,
+	"request_sdp_offer":0, "list_rooms":0,
+	"join_room":0, "list_peers":0,
+	"leave_room":0, "change_nick":0,
+	"say":0, "upload_image":0, "mute":0,
+	"promote":0, "request_admin":0,
+	"sdp_offer":0, "sdp_answer":0},
 	LOG = {"NORMAL":1,
 	"VERB":2, "DBG":3,
 	"OGODWTF":4};
@@ -728,12 +731,12 @@
 					}
 					else
 					{
-						console.error("Unknown error\nTransaction: "+message.transaction);
+						console.error("[handle_janus_message] Error for unknown transaction: "+message.transaction);
 					}
 				break;
 				
 				default:
-					console.error("Unknown message from server", message);
+					console.error("[handle_janus_message] Unknown message from server", message);
 				break;
 			}
 		}
@@ -753,23 +756,23 @@
 				case "join_room":
 					msg.transaction = request;
 					msg.body.room = stuff;
-					msg.body.request = user_commands[request];
+					msg.body.request = request;
 				break;
 
 				case "leave_room":
 					msg.transaction = request;
-					msg.body.request = user_commands[request];
+					msg.body.request = request;
 				break;
 				
 				case "sdp_pass":
 					msg.transaction = request;
 					msg.jsep = stuff;
-					msg.body.request = user_commands[request];
+					msg.body.request = request;
 				break;
 				
 				case "request_sdp_offer":
 					msg.transaction = request;
-					msg.body.request = user_commands[request];
+					msg.body.request = request;
 					msg.body.audio = stuff.audio;
 					msg.body.video = stuff.video;
 				break;
@@ -789,7 +792,7 @@
 				case "list_peers":
 				case "list_rooms":
 					msg.transaction = request;
-					msg.body.request = user_commands[request];
+					msg.body.request = request;
 				break;
 				
 				case "destroy_plugin":
@@ -879,7 +882,7 @@
 		var message = JSON.parse(e.data);
 		log(LOG.VERB, "Got message on WebSocket connection");
 		log(LOG.DBG, message);
-		if(message.janus == "message" || message.transaction && message.transaction in user_commands)
+		if(message.janus == "message" || message.transaction && typeof plugin_messages[message.transaction] != "undefined")
 		{
 			log(LOG.DBG, "Handing off to handle_plugin_message");
 			handle_plugin_message(message);
